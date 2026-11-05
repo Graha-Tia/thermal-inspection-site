@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f9fb" />
+  <title>열화상 점검 작업대</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+<div id="auth-screen" class="auth-screen hidden">
+  <form class="auth-card" id="login-form">
+    <div class="brand-symbol">▦</div>
+    <h1>열화상 점검 작업대</h1>
+    <p>저장된 점검 자료에 접근하려면 비밀번호를 입력하세요.</p>
+    <label for="password">접속 비밀번호</label>
+    <input type="password" id="password" autocomplete="current-password" required placeholder="비밀번호" />
+    <button class="btn btn-primary btn-full" type="submit">접속하기</button>
+  </form>
+</div>
+<div class="app-layout hidden" id="app-layout">
+  <aside class="sidebar">
+    <div class="side-brand">
+      <div class="brand-symbol">▦</div>
+      <div><b>ThermoLog</b><span>열화상 점검 작업대</span></div>
+    </div>
+    <div class="side-section-title">작업 공간</div>
+    <div class="side-nav side-nav-active"><span class="nav-icon">▤</span> 전체 점검 목록</div>
+    <div class="side-section-title">등록한 현장</div>
+    <div id="sidebar-projects" class="side-projects"></div>
+    <button class="side-add" id="side-upload"><span>＋</span> 새 현장 등록</button>
+    <div class="side-footer"><span class="footer-dot"></span> 원본 엑셀 양식 보존<br /><small>입력 자료는 이 서버에 저장됩니다.</small></div>
+  </aside>
+
+  <div class="main-shell">
+    <header class="topbar">
+      <div class="breadcrumbs"><span>점검 관리</span><span class="chevron">/</span><strong id="breadcrumb-project">현장 선택</strong></div>
+      <div class="top-actions">
+        <select id="project-select" class="mobile-project-select" aria-label="현장 선택"></select>
+        <button class="btn btn-outline btn-small" id="rename-project" title="현장 이름 변경">현장명 변경</button>
+        <button class="btn btn-outline btn-small" id="remove-project" title="선택한 현장 삭제">현장 삭제</button>
+        <button class="btn btn-outline btn-small hidden" id="logout">로그아웃</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">INSPECTION WORKSPACE</div>
+          <h1>열화상 측정 관리</h1>
+          <p>층별 판넬 상태를 확인하고, 측정 사진과 최고온도를 기록하세요.</p>
+        </div>
+        <div class="page-buttons">
+          <button class="btn btn-outline" id="upload-btn"><span class="btn-icon">＋</span> 현장 엑셀 등록</button>
+          <button class="btn btn-primary" id="download-btn"><span class="btn-icon">↓</span> 엑셀 다운로드</button>
+        </div>
+      </div>
+
+      <div id="empty-state" class="empty-state hidden">
+        <div class="empty-icon">▤</div>
+        <h2>등록된 현장이 없습니다</h2>
+        <p>분전반 목록이 포함된 기존 엑셀 파일을 업로드하면<br />층별 점검 목록을 자동 생성합니다.</p>
+        <button class="btn btn-primary" id="empty-upload">첫 현장 등록하기</button>
+      </div>
+
+      <div id="project-content" class="hidden">
+        <section class="project-heading">
+          <div><span class="project-kicker">선택한 현장</span><h2 id="project-title"></h2><div class="project-meta" id="project-meta"></div></div>
+          <span class="status-tag status-neutral">원본 서식 유지</span>
+        </section>
+        <section class="summary-grid">
+          <div class="metric-card"><div class="metric-label">전체 측정 대상 <span>⌗</span></div><div class="metric-value" id="total-count">0 <small>개</small></div><div class="metric-hint">등록된 전체 판넬 및 장비</div></div>
+          <div class="metric-card"><div class="metric-label">측정 완료 <span>✓</span></div><div class="metric-value" id="done-count">0 <small>개</small></div><div class="metric-hint"><span class="mini-dot teal"></span> 사진 및 최고온도 기록</div></div>
+          <div class="metric-card"><div class="metric-label">미측정 <span>○</span></div><div class="metric-value" id="pending-count">0 <small>개</small></div><div class="metric-hint"><span class="mini-dot amber"></span> 점검이 필요한 항목</div></div>
+          <div class="metric-card metric-progress"><div class="metric-label">전체 진행률 <span>↗</span></div><div class="metric-value" id="progress-count">0<small>%</small></div><div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div></div>
+        </section>
+        <section class="list-section">
+          <div class="section-heading"><div><h2>층별 점검 목록</h2><p>항목을 누르면 사진 촬영과 측정을 시작할 수 있습니다.</p></div><span class="section-count" id="visible-count"></span></div>
+          <div class="filter-bar"><div id="floor-filters" class="floor-filters"></div><div class="filter-tools"><label class="search-field"><span>⌕</span><input id="search" type="search" placeholder="판넬명·위치 검색" aria-label="판넬명·위치 검색" /></label><select id="status-filter" aria-label="측정 상태"><option value="all">전체 상태</option><option value="pending">미측정</option><option value="done">측정 완료</option></select></div></div>
+          <div class="table-scroller"><table class="panels-table"><thead><tr><th>번호</th><th>판넬 / 장비명</th><th>층수</th><th>실제 위치</th><th>최고온도</th><th>점검 상태</th><th></th></tr></thead><tbody id="panels-body"></tbody></table></div>
+          <div id="mobile-panels" class="mobile-panels"></div>
+          <div class="no-results hidden" id="no-results">현재 조건에 해당하는 판넬이 없습니다.</div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="modal-backdrop hidden" id="upload-modal" role="dialog" aria-modal="true" aria-label="현장 엑셀 등록">
+  <div class="modal upload-dialog">
+    <div class="modal-head"><div><div class="eyebrow">NEW SITE</div><h2>새 현장 등록</h2></div><button class="icon-button" data-close="upload-modal" aria-label="닫기">×</button></div>
+    <form id="upload-form" class="modal-form">
+      <label class="field-title" for="upload-name">현장 이름 <span class="optional">선택</span></label>
+      <input id="upload-name" type="text" maxlength="100" placeholder="예: 세종 나성점 (비워두면 파일명 사용)" />
+      <label class="field-title" for="upload-file">기존 엑셀 파일 <span class="required">필수</span></label>
+      <label class="file-drop" id="file-drop"><input id="upload-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required /><span class="upload-illustration">↑</span><strong id="file-drop-title">.xlsx 파일을 선택하세요</strong><span>기존 시트와 서식을 유지하며 항목을 자동으로 읽습니다.</span></label>
+      <p class="hint-box">엑셀에 층수, 판넬명칭(또는 장비명칭), 설치위치, 점검일, 최고온도 열과 열화상 사진 시트가 있어야 합니다.</p>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="upload-modal">취소</button><button type="submit" id="submit-upload" class="btn btn-primary">현장 등록</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop hidden" id="inspection-modal" role="dialog" aria-modal="true" aria-label="판넬 측정 입력">
+  <div class="modal inspect-dialog">
+    <div class="modal-head"><div><div class="eyebrow" id="inspecting-id">PANEL #01</div><h2 id="inspecting-name">판넬명</h2><p class="modal-subtitle" id="inspecting-location"></p></div><button class="icon-button" data-close="inspection-modal" aria-label="닫기">×</button></div>
+    <div class="wizard-steps"><div class="wizard-step" data-step="1"><span>1</span><b>사진 촬영</b></div><div class="wizard-line"></div><div class="wizard-step" data-step="2"><span>2</span><b>사진 자르기</b></div><div class="wizard-line"></div><div class="wizard-step" data-step="3"><span>3</span><b>온도 입력</b></div></div>
+    <div class="wizard-stage" id="stage-1">
+      <div class="stage-title"><h3>사진을 등록해 주세요</h3><p>열화상 카메라로 촬영한 사진을 선택하세요.</p></div>
+      <div class="capture-options">
+        <label class="capture-option"><span class="capture-icon">◉</span><strong>카메라 촬영</strong><small>휴대폰으로 사진 찍기</small><input type="file" id="capture-camera" accept="image/*" capture="environment" /></label>
+        <label class="capture-option"><span class="capture-icon">▧</span><strong>앨범에서 선택</strong><small>저장된 사진 불러오기</small><input type="file" id="capture-file" accept="image/*" /></label>
+      </div>
+      <button class="btn btn-outline btn-full hidden" id="keep-photo">기존 사진 유지하고 온도만 수정</button>
+      <div class="stage-note">최종 사진은 엑셀의 지정된 사진 영역 비율로 맞춰 저장됩니다.</div>
+    </div>
+    <div class="wizard-stage hidden" id="stage-2">
+      <div class="stage-title"><h3>엑셀 사진 영역에 맞추기</h3><p>사진을 드래그해 위치를 조정하고, 확대 비율을 선택하세요.</p></div>
+      <div class="crop-area"><div id="crop-viewport" class="crop-viewport"><img id="crop-image" alt="자르기 전 사진" draggable="false" /><span class="crop-corner corner-a"></span><span class="crop-corner corner-b"></span><span class="crop-corner corner-c"></span><span class="crop-corner corner-d"></span></div></div>
+      <div class="zoom-row"><span>－</span><input id="zoom-slider" type="range" min="1" max="3" value="1" step="0.01" aria-label="사진 확대" /><span>＋</span><span id="zoom-value">100%</span></div>
+      <div class="modal-actions"><button class="btn btn-outline" id="crop-back">이전</button><button class="btn btn-primary" id="crop-next">이대로 자르기</button></div>
+    </div>
+    <form class="wizard-stage hidden" id="stage-3">
+      <div class="stage-title"><h3>최고온도를 입력해 주세요</h3><p>측정값을 입력하면 점검일과 함께 엑셀에 기록됩니다.</p></div>
+      <img id="cropped-preview" class="cropped-preview" alt="최종 선택한 열화상 사진" />
+      <div class="field-grid"><label><span class="field-title">최고온도 (℃) <em>*</em></span><div class="temperature-input"><input type="number" id="temperature" required min="-273.15" max="2000" step="0.1" placeholder="예: 42.5" /><span>℃</span></div></label><label><span class="field-title">점검일 <em>*</em></span><input id="inspection-date" type="date" required /></label></div>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" id="temperature-back">이전</button><button type="submit" class="btn btn-primary" id="save-reading">측정 결과 저장</button></div>
+      <button type="button" class="clear-reading hidden" id="clear-reading">이 판넬의 측정 기록 삭제</button>
+    </form>
+  </div>
+</div>
+<div class="toast-container" id="toast-container" aria-live="polite"></div>
+</body>
+</html>
